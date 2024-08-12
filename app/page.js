@@ -5,35 +5,44 @@ import { useState, useRef, useEffect } from 'react'
 import './globals.css'; // Ensure this import is present
 
 export default function Home() {
+  // State to hold the list of messages in the chat
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
       content: "Hi! I'm the Headstarter support assistant. How can I help you today?",
     },
-  ])
-  const [message, setMessage] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+  ]);
 
+  // State to hold the current input message from the user
+  const [message, setMessage] = useState('');
+
+  // State to manage the loading state when sending a message
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Function to send the user's message to the server
   const sendMessage = async () => {
+    // Prevent sending an empty or multiple messages while already loading
     if (!message.trim() || isLoading) return;
     setIsLoading(true);
   
+    // Update the messages state with the user's message and a placeholder for the assistant's reply
     setMessages((messages) => [
       ...messages,
-      { role: 'user', content: message },  // Add the user's message to the chat
-      { role: 'assistant', content: '' },  // Add a placeholder for the assistant's response
+      { role: 'user', content: message },
+      { role: 'assistant', content: '' },
     ]);
   
     try {
-      // Send the message to the server
+      // Send the message to the server via a POST request
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify([{ role: 'user', content: message }]),
+        body: JSON.stringify({ messages: [...messages, { role: 'user', content: message }] }),
       });
   
+      // Check for network errors
       if (!response.ok) {
         throw new Error('Network response was not ok');
       }
@@ -42,44 +51,58 @@ export default function Home() {
       const decoder = new TextDecoder();
       let result = '';
   
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        result += decoder.decode(value, { stream: true });
+      // Function to process the text chunks from the response
+      const processText = async ({ done, value }) => {
+        if (done) {
+          console.log("Final result:", result); // Log final result
+          return;
+        }
+        const text = decoder.decode(value || new Uint8Array(), { stream: true });
+        result += text;
+  
+        // Update the assistant's message with the new text chunk
         setMessages((messages) => {
           let lastMessage = messages[messages.length - 1];
-          let otherMessages = messages.slice(0, -1);
+          let otherMessages = messages.slice(0, messages.length - 1);
           return [
             ...otherMessages,
-            { ...lastMessage, content: lastMessage.content + result },
+            { ...lastMessage, content: lastMessage.content + text },
           ];
         });
-      }
+  
+        return reader.read().then(processText);
+      };
+  
+      await reader.read().then(processText);
+  
     } catch (error) {
-      console.error('Error:', error);
+      // Log any errors that occur during the fetch request
+      console.error('Error sending message:', error);
     } finally {
-      setIsLoading(false);
-      setMessage('');
+      setIsLoading(false); // Reset loading state
     }
   };
   
-
+  // Function to handle Enter key press to send the message
   const handleKeyPress = (event) => {
     if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault()
-      sendMessage()
+      event.preventDefault(); // Prevent newline on Enter key press
+      sendMessage(); // Call the sendMessage function
     }
-  }
+  };
 
-  const messagesEndRef = useRef(null)
+  // Ref to manage scrolling to the bottom of the chat
+  const messagesEndRef = useRef(null);
 
+  // Function to scroll to the bottom of the chat
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
+  // Use effect to scroll to the bottom whenever the messages change
   useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+    scrollToBottom();
+  }, [messages]);
 
   return (
     <Box
@@ -149,5 +172,5 @@ export default function Home() {
         </Stack>
       </Stack>
     </Box>
-  )
+  );
 }

@@ -1,51 +1,68 @@
-import { NextResponse } from 'next/server'; // Import NextResponse from Next.js for handling responses
-import { OpenAI } from 'openai'; // Import OpenAI library for interacting with the OpenAI API
+import { NextResponse } from 'next/server';
+import { Configuration, OpenAI } from 'openai';
 
+// Define the system prompt for the AI model
 const systemPrompt = "You are an AI-Powered customer support bot for HeadstarterAI, a cutting-edge platform that facilitates AI-powered interviews for software engineering (SWE) jobs. Your role is to assist users, including job seekers, recruiters, and hiring managers, by providing accurate, friendly, and concise support.";
 
+// Handle POST requests to this API route
 export async function POST(req) {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY }); // Initialize OpenAI client with API key
+  // Initialize OpenAI client with API key from environment variables
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   try {
-    const data = await req.json(); // Parse the JSON body of the incoming request
+    // Parse the incoming request body as JSON
+    const data = await req.json();
+    console.log("Received data:", data); // Log the received data for debugging
 
-    // Create a chat completion request to the OpenAI API
+    // Validate that the 'messages' field is an array
+    if (!Array.isArray(data.messages)) {
+      throw new Error('Invalid data format: messages should be an array');
+    }
+
+    // Create a chat completion request to OpenAI's API
     const completion = await openai.chat.completions.create({
       messages: [
         {
           role: "system",
-          content: systemPrompt,
+          content: systemPrompt, // Include the system prompt in the messages
         },
-        ...data.messages, // Ensure you're spreading the correct messages array
+        ...data.messages, // Add the user-provided messages to the request
       ],
-      model: "gpt-4o-mini",
-      stream: true,
+      model: "gpt-4o-mini", // Specify the model to use
+      stream: true, // Enable streaming responses
     });
 
-    // Create a ReadableStream to handle the streaming response
+    // Create a ReadableStream to handle the streamed response
     const stream = new ReadableStream({
       async start(controller) {
-        const encoder = new TextEncoder(); // Create a TextEncoder to convert strings to Uint8Array
+        const encoder = new TextEncoder(); // Encoder to convert text to Uint8Array
         try {
-          // Iterate over the streamed chunks of the response
+          // Iterate over each chunk of the streamed response
           for await (const chunk of completion) {
-            const content = chunk.choices[0]?.delta?.content; // Extract the content from the chunk
+            // Extract the content from the chunk
+            const content = chunk.choices[0]?.delta?.content;
             if (content) {
-              const text = encoder.encode(content); // Encode the content to Uint8Array
-              controller.enqueue(text); // Enqueue the encoded text to the stream
+              // Encode the content and enqueue it into the stream
+              const text = encoder.encode(content);
+              controller.enqueue(text);
             }
           }
         } catch (error) {
-          controller.error(error); // Handle any errors that occur during streaming
+          // Handle errors during streaming
+          controller.error(error);
         } finally {
-          controller.close(); // Close the stream when done
+          // Close the stream when done
+          controller.close();
         }
       },
     });
 
-    return new NextResponse(stream); // Return the stream as the response
+    // Return the stream as the response
+    return new NextResponse(stream);
 
   } catch (error) {
-    return new NextResponse('Internal Server Error', { status: 500 }); // Return an error response if something goes wrong
+    // Log any errors that occur and return a 500 Internal Server Error response
+    console.error("API error:", error);
+    return new NextResponse('Internal Server Error', { status: 500 });
   }
 }
