@@ -105,3 +105,10 @@ a {
     color-scheme: dark;
   }
 }
+
+/* Global CSS */
+.text-field {
+  background-color: #ffffff; /* Set background color to white */
+  border: 1px solid #dcdcdc; /* Optional: add a border for better visibility */
+  border-radius: 4px; /* Optional: add some border radius for rounded corners */
+}
