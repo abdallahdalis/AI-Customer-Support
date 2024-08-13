@@ -21,19 +21,18 @@ export default function Home() {
 
   // Function to send the user's message to the server
   const sendMessage = async () => {
-    // Prevent sending an empty or multiple messages while already loading
     if (!message.trim() || isLoading) return;
     setIsLoading(true);
-  
-    // Update the messages state with the user's message and a placeholder for the assistant's reply
+    
     setMessages((messages) => [
       ...messages,
       { role: 'user', content: message },
       { role: 'assistant', content: '' },
     ]);
-  
+    
+    setMessage(''); // Clear the text box immediately after sending the message
+    
     try {
-      // Send the message to the server via a POST request
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -42,7 +41,6 @@ export default function Home() {
         body: JSON.stringify({ messages: [...messages, { role: 'user', content: message }] }),
       });
   
-      // Check for network errors
       if (!response.ok) {
         throw new Error('Network response was not ok');
       }
@@ -51,7 +49,6 @@ export default function Home() {
       const decoder = new TextDecoder();
       let result = '';
   
-      // Function to process the text chunks from the response
       const processText = async ({ done, value }) => {
         if (done) {
           console.log("Final result:", result); // Log final result
@@ -60,7 +57,6 @@ export default function Home() {
         const text = decoder.decode(value || new Uint8Array(), { stream: true });
         result += text;
   
-        // Update the assistant's message with the new text chunk
         setMessages((messages) => {
           let lastMessage = messages[messages.length - 1];
           let otherMessages = messages.slice(0, messages.length - 1);
@@ -76,10 +72,9 @@ export default function Home() {
       await reader.read().then(processText);
   
     } catch (error) {
-      // Log any errors that occur during the fetch request
       console.error('Error sending message:', error);
     } finally {
-      setIsLoading(false); // Reset loading state
+      setIsLoading(false);
     }
   };
   
