@@ -1,8 +1,13 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, signInWithPopup, GoogleAuthProvider signInWithEmailAndPassword } from "firebase/auth";
-import { signOut } from "firebase/auth";
-import { auth } from '../firebase';
+import { getFirestore } from "firebase/firestore";
 
+import {
+  getAuth,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
+import { signOut } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -15,6 +20,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app);
 
 const signInWithGoogle = () => {
   const provider = new GoogleAuthProvider();
@@ -25,13 +31,14 @@ const signInWithEmail = (email, password) => {
   return signInWithEmailAndPassword(auth, email, password);
 };
 
-export { auth, signInWithGoogle, signInWithEmail };
-
-
 const handleSignOut = () => {
-  signOut(auth).then(() => {
-    console.log('Signed out successfully');
-  }).catch((error) => {
-    console.error('Sign out error', error);
-  });
+  signOut(auth)
+    .then(() => {
+      console.log("Signed out successfully");
+    })
+    .catch((error) => {
+      console.error("Sign out error", error);
+    });
 };
+
+export { auth, signInWithGoogle, signInWithEmail, db, handleSignOut };

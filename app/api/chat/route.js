@@ -1,68 +1,110 @@
-import { NextResponse } from 'next/server';
-import { Configuration, OpenAI } from 'openai';
+import { NextResponse } from "next/server";
+import { Configuration, OpenAI } from "openai";
+import { adminAuth, adminDb } from "../../lib/firebaseAdmin"; // Adjust the path accordingly
 
-// Define the system prompt for the AI model
-const systemPrompt = "You are an AI-Powered customer support bot for HeadstarterAI, a cutting-edge platform that facilitates AI-powered interviews for software engineering (SWE) jobs. Your role is to assist users, including job seekers, recruiters, and hiring managers, by providing accurate, friendly, and concise support.";
+const systemPrompt =
+  "You are an AI-Powered customer support bot for HeadstarterAI, a cutting-edge platform that facilitates AI-powered interviews for software engineering (SWE) jobs. Your role is to assist users, including job seekers, recruiters, and hiring managers, by providing accurate, friendly, and concise support. Reply with properly formatted Markdown.";
 
-// Handle POST requests to this API route
+async function verifyToken(req) {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return null;
+  }
+  const idToken = authHeader.split("Bearer ")[1];
+  try {
+    const decodedToken = await adminAuth.verifyIdToken(idToken);
+    return decodedToken;
+  } catch (error) {
+    console.error("Error verifying ID token:", error);
+    return null;
+  }
+}
+
 export async function POST(req) {
-  // Initialize OpenAI client with API key from environment variables
+  console.log("POST request received");
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  try {
-    // Parse the incoming request body as JSON
-    const data = await req.json();
-    console.log("Received data:", data); // Log the received data for debugging
+  const decodedToken = await verifyToken(req);
+  if (!decodedToken) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
 
-    // Validate that the 'messages' field is an array
+  const userId = decodedToken.uid;
+  console.log("User authenticated with ID:", userId);
+
+  try {
+    const data = await req.json();
+    console.log("Received data:", data);
+
     if (!Array.isArray(data.messages)) {
-      throw new Error('Invalid data format: messages should be an array');
+      throw new Error("Invalid data format: messages should be an array");
     }
 
-    // Create a chat completion request to OpenAI's API
     const completion = await openai.chat.completions.create({
-      messages: [
-        {
-          role: "system",
-          content: systemPrompt, // Include the system prompt in the messages
-        },
-        ...data.messages, // Add the user-provided messages to the request
-      ],
-      model: "gpt-4o-mini", // Specify the model to use
-      stream: true, // Enable streaming responses
+      messages: [{ role: "system", content: systemPrompt }, ...data.messages],
+      model: "gpt-4o-mini",
+      stream: true,
     });
 
-    // Create a ReadableStream to handle the streamed response
     const stream = new ReadableStream({
       async start(controller) {
-        const encoder = new TextEncoder(); // Encoder to convert text to Uint8Array
+        const encoder = new TextEncoder();
         try {
-          // Iterate over each chunk of the streamed response
           for await (const chunk of completion) {
-            // Extract the content from the chunk
             const content = chunk.choices[0]?.delta?.content;
             if (content) {
-              // Encode the content and enqueue it into the stream
-              const text = encoder.encode(content);
-              controller.enqueue(text);
+              controller.enqueue(encoder.encode(content));
             }
           }
         } catch (error) {
-          // Handle errors during streaming
           controller.error(error);
         } finally {
-          // Close the stream when done
           controller.close();
         }
       },
     });
 
-    // Return the stream as the response
-    return new NextResponse(stream);
-
+    return new Response(stream);
   } catch (error) {
-    // Log any errors that occur and return a 500 Internal Server Error response
     console.error("API error:", error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return new NextResponse("Internal Server Error", { status: 500 });
+  }
+}
+
+export async function GET(req) {
+  console.log("GET request received");
+
+  const decodedToken = await verifyToken(req);
+  if (!decodedToken) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
+
+  const userId = decodedToken.uid;
+  console.log("User authenticated with ID:", userId);
+
+  try {
+    const userDoc = adminDb.collection("Messages").doc(userId);
+    const docSnap = await userDoc.get();
+
+    if (!docSnap.exists) {
+      return new NextResponse(
+        JSON.stringify({
+          messages: [
+            {
+              role: "assistant",
+              content:
+                "Hi! I'm the Headstarter support assistant. How can I help you today?",
+            },
+          ],
+        }),
+        { status: 200 }
+      );
+    }
+
+    const messages = docSnap.data().messages;
+    return new NextResponse(JSON.stringify({ messages }), { status: 200 });
+  } catch (error) {
+    console.error("Error fetching messages:", error);
+    return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
