@@ -1,4 +1,6 @@
 import { initializeApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
+
 import {
   getAuth,
   signInWithPopup,
@@ -18,6 +20,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app);
 
 const signInWithGoogle = () => {
   const provider = new GoogleAuthProvider();
@@ -28,8 +31,6 @@ const signInWithEmail = (email, password) => {
   return signInWithEmailAndPassword(auth, email, password);
 };
 
-export { auth, signInWithGoogle, signInWithEmail };
-
 const handleSignOut = () => {
   signOut(auth)
     .then(() => {
@@ -39,3 +40,5 @@ const handleSignOut = () => {
       console.error("Sign out error", error);
     });
 };
+
+export { auth, signInWithGoogle, signInWithEmail, db, handleSignOut };
