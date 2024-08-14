@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server';
-import { Configuration, OpenAI } from 'openai';
+import { NextResponse } from "next/server";
+import { Configuration, OpenAI } from "openai";
 
 // Define the system prompt for the AI model
-const systemPrompt = "You are an AI-Powered customer support bot for HeadstarterAI, a cutting-edge platform that facilitates AI-powered interviews for software engineering (SWE) jobs. Your role is to assist users, including job seekers, recruiters, and hiring managers, by providing accurate, friendly, and concise support.";
+const systemPrompt =
+  "You are an AI-Powered customer support bot for HeadstarterAI, a cutting-edge platform that facilitates AI-powered interviews for software engineering (SWE) jobs. Your role is to assist users, including job seekers, recruiters, and hiring managers, by providing accurate, friendly, and concise support. Reply with properly formatted Markdown.";
 
 // Handle POST requests to this API route
 export async function POST(req) {
@@ -16,7 +17,7 @@ export async function POST(req) {
 
     // Validate that the 'messages' field is an array
     if (!Array.isArray(data.messages)) {
-      throw new Error('Invalid data format: messages should be an array');
+      throw new Error("Invalid data format: messages should be an array");
     }
 
     // Create a chat completion request to OpenAI's API
@@ -59,10 +60,9 @@ export async function POST(req) {
 
     // Return the stream as the response
     return new NextResponse(stream);
-
   } catch (error) {
     // Log any errors that occur and return a 500 Internal Server Error response
     console.error("API error:", error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
